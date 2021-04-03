@@ -27,9 +27,9 @@ public:
 	int right_down_position_x = N * scale;
 	int right_down_position_y = scale;
 	int right_hight_position_x = N * scale;
-	int right_hight_position_y = M * scale - 20;
+	int right_hight_position_y = M * scale - 21;
 	int left_hight_position_x = scale;
-	int left_hight_position_y = M * scale - 20;
+	int left_hight_position_y = M * scale - 21;
 
 	void DrawBarier() {										// draw rectangle barier
 		glBegin(GL_LINE_LOOP);
@@ -50,13 +50,13 @@ public:
 
 	void New()												// create new target
 	{
-		x = (barier.left_down_position_x + rand() % barier.right_down_position_x-scale) / scale;	// x position
-		y = (barier.left_down_position_y+rand() % barier.right_hight_position_y - scale) / scale;	// y position
+		x = (barier.left_down_position_x+10 + rand() % barier.right_down_position_x-scale-20) / scale;	// x position
+		y = (barier.left_down_position_y+10+rand() % barier.right_hight_position_y - scale-20) / scale;	// y position
 		z = 0;																						// z position
 
 		//strange bug with the respawn of food outside the barrier, so check and other respawn
-		if (x>= barier.right_down_position_x - scale || x<= barier.left_down_position_x) x = 10;
-		if (y>= barier.right_hight_position_y - scale || y<= barier.left_down_position_y) y = 10;
+		if (x>= barier.right_down_position_x-10 - scale || x<= barier.left_down_position_x) x = 20;
+		if (y>= barier.right_hight_position_y-10 - scale || y<= barier.left_down_position_y) y = 20;
 	}
 
 	void DrawTarget()
@@ -233,4 +233,8 @@ int main(int argc, char** argv)
 	glutMainLoop();
 
 	return 0;
+
+	//добавить game over при столкновении со стенками
+	// ввести проверку на коорд-ту появлентия таргета
+	//разобраться с 7границами
 }
