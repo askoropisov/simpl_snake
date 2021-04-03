@@ -1,119 +1,143 @@
 
 #include <time.h>
 #include <random>
-#include <iostream> // подключаем все необходимые инклюды.
+#include <iostream> 
 #include "glut.h"
 #include <ctime>
-#include <vector>
-
-int N = 40, M = 40; // т.к. змейка будем ездить по квадратикам, создадим их, для нашего окна в идеале будет 30x20 квадратов
-int scale = 12; // размер квадрата. Когда OpenGL будет расчерчивать поле для игры, расстояние между гранями квадрата будет 25 пикселей
-
-int w = scale * N; // ширина поля  
-int h = scale * M; // его высота
-
-double Zoom = 50.0;
-double a, b;
-float vx = 0.0, vy = 0.0, vz = 0.0;
-
-float mass_color[11] = { 0,0.1, 0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1 };
+#include <string>
 
 
-int dir, num = 4; // 4 направления и начальный размер змеи.
-struct { int x; int y; int z; } s[100]; // структура змеи, X и Y координаты, массив с длинной.
+int N = 40, M = 40;											// size fild
+int scale = 12;												// distance and scale
 
-class fruct // класс фруктов, тех самых, которые будет есть наша змея
+int w = scale * N;											// widht field
+int h = scale * M;											// height field
+int counter = 0;											// counter score
+
+float mass_color[] = {0.1, 0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1 };			//variant colors;
+
+
+int dir, num = 4;											// direction and size.
+struct { int x; int y; int z; } s[100];						// size snake
+
+class Barier {												// rectangle barier
+public:
+	int left_down_position_x = scale;
+	int left_down_position_y = scale;
+	int right_down_position_x = N * scale;
+	int right_down_position_y = scale;
+	int right_hight_position_x = N * scale;
+	int right_hight_position_y = M * scale - 20;
+	int left_hight_position_x = scale;
+	int left_hight_position_y = M * scale - 20;
+
+	void DrawBarier() {										// draw rectangle barier
+		glBegin(GL_LINE_LOOP);
+
+		glColor3f(1, 0, 0);
+		glVertex3f(left_down_position_x, left_down_position_y, 0);
+		glVertex3f(right_down_position_x, right_down_position_y, 0);
+		glVertex3f(right_hight_position_x, right_hight_position_y, 0);
+		glVertex3f(left_hight_position_x, left_hight_position_y, 0);
+		glEnd();
+	}
+}barier;
+
+class Target												// targets
 {
 public:
-	int x, y, z; //координаты фруктов, что и где будет находится
+	int x, y, z;											//koor-d targets
 
-
-	void New() // паблик с новыми фруктами. Он будет вызываться в начале игры и в тот момент, когда змея съест один из фруктов
+	void New()												// create new target
 	{
-		
-		x = (rand() % (N-5) ); // вычисление X координаты через рандом
-		y = (rand() % (M-5) ); // вычисление Y координаты через рандом
-		
-		z = 0;
+		x = (barier.left_down_position_x + rand() % barier.right_down_position_x-scale) / scale;	// x position
+		y = (barier.left_down_position_y+rand() % barier.right_hight_position_y - scale) / scale;	// y position
+		z = 0;																						// z position
+
+		//strange bug with the respawn of food outside the barrier, so check and other respawn
+		if (x>= barier.right_down_position_x - scale || x<= barier.left_down_position_x) x = 10;
+		if (y>= barier.right_hight_position_y - scale || y<= barier.left_down_position_y) y = 10;
 	}
 
-	void DrawFruct()// паблик, отрисовывающий фрукты
+	void DrawTarget()
 	{
-		srand(time(NULL));
-		int p = rand() % 11;
-		float r = mass_color[rand() % 11];
-		float g = mass_color[rand() % 11];
-		float b = mass_color[rand() % 11];
+		srand(time(NULL));									// off psevdorandom													
+		int p = rand() % 10;
+		float r = mass_color[rand() % 10];					// random red
+		float g = mass_color[rand() % 10];					// random green
+		float b = mass_color[rand() % 10];					// random blue
 
-		glColor3d(r,g,b); // цвет фруктов. в openGL он задается от 0 до 1, а не от 0 до 256, как многие привыкли
-		glRectf(x * scale, y * scale, (x + 1) * scale, (y+1) * scale); // "Закрашиваем" квадрат выбранным цветом, таким образом в нем "появляется" фрукт
+		glColor3d(r,g,b);									// random color target
+		glRectf(x * scale, y * scale, (x + 1) * scale, (y+1) * scale); 
 	}
-} m; // масив с фруктами, таким образом, у нас появится одновременно 5 фруктов в разных местах, а не один
+} m; 
 
-void Draw() // функция, которая отрисовывает линии
+void Draw()													//Debug
 {
-	glColor3f(1.0, 0.0, 0.0); // цвет наших линий, в данном слуае - красный
-	glBegin(GL_LINES); // начинаем рисовать и указываем, что это линии
-	for (int i = 0; i < w; i += scale) // отрисовываем линии в ширину
+	glColor3f(1, 0, 0);										// red color
+	glBegin(GL_LINES); 
+	for (int i = 0; i < w; i += scale)						// draw horizontal line
 	{
-		glVertex3f(i, 0, 0); glVertex3f(i, h, 0); // рисуем прямую
+		glVertex3f(i, 0, 0); glVertex3f(i, h, 0);			
 	}
-	for (int j = 0; j < h; j += scale) //отрисовываем линии в высоту
+	for (int j = 0; j < h; j += scale)						// draw vertical line
 	{
-		glVertex3f(0, j, 0); glVertex3f(w, j, 0); // рисуем ту же самую прямую, но в другом направлении
+		glVertex3f(0, j, 0); glVertex3f(w, j, 0); 
 	} 
-
-	glEnd(); // конец отрисовки
+	glEnd(); 
 }
 
-void tick() // функция в которой будет все обновляться (двигаться змея и т.д.)
+void Movement()												// all rendering 
 {
 
 
-	for (int i = num; i > 0; --i) // движение змеи. Система остроумна и проста : блок перемешается вперед, а остальные X блоков, на X+1( 2 блок встанет на место 1, 3 на место 2 и т.д...)
+	for (int i = num; i > 0; --i)							// move snake
 	{
-		s[i].x = s[i - 1].x; // задаем Х координату i блока координатой i - 1
-		s[i].y = s[i - 1].y; // то же самое делаем и с Y координатой
+		s[i].x = s[i - 1].x;								// Х [i] bloc = i - 1
+		s[i].y = s[i - 1].y;								// ....
 	}
-	// далее у нас система направлений.
-	if (dir == 0) s[0].y += 1; // если направление равно 0, то первый фрагмент массива перемещается на один по Y
-	if (dir == 1) s[0].x -= 1; // если направление равно 1, то первый фрагмент массива перемещается на минус один по X
-	if (dir == 2) s[0].x += 1; // аналогиная система
-	if (dir == 3) s[0].y -= 1; // аналогичная система
 
-	for (int i = 0; i < 10; i++) //цикл, в котором наша змея будет расти
+	//direction
+	if (dir == 0) s[0].y += 1; 
+	if (dir == 1) s[0].x -= 1; 
+	if (dir == 2) s[0].x += 1; 
+	if (dir == 3) s[0].y -= 1; 
+
+	for (int i = 0; i < 10; i++)							//size snake grow up
 	{
-		if ((s[0].x == m.x) && (s[0].y == m.y)) // Если голова нашей змеи находится в одном блоке с фруктом, то...
+		if ((s[0].x == m.x) && (s[0].y == m.y))				// grow up if koor-d head = koor-d target
 		{
-			num++; //...увеличиваем размер нашей змеи на 1
-			m.New(); // ... запускаем функцию отрисовки нового фрукта.
+			num++;											//size snake ++
+			counter++;
+			m.New();										// new target
 		}
 	}
-	// Следующее нужно, что бы змея не выходила за рамка поля. Действует это просто : если змея выходит за рамки поля, то задаем
-	if (s[0].x >= N-1) dir = 1; // Ей обратное направление. Например, если она выйдет за экран по высоте, то задаем ей направление, при котором она ползет
-	if (s[0].y >= M-3) dir = 3; // вниз
-	if (s[0].x <= 0+1) dir = 2;
-	if (s[0].y <= 0+1) dir = 0;
+	// check the borders
+	if (s[0].x >= N-1) dir = 1;		//if direction right, direction = left
+	if (s[0].y >= M-3) dir = 3;		// ....
+	if (s[0].x <= 0+1) dir = 2;		// ....
+	if (s[0].y <= 0+1) dir = 0;		// ....
 
-	for (int i = 1; i < num; i++) // с помощью этого цикла мы "обрежем" змею, если она заползет сама на себя
-		if (s[0].x == s[i].x && s[0].y == s[i].y) // проверка координат частей змеи, если X и Y координата головной части равно координате любого
-			num = i; // другого блока змеи, то задаем ей длину, при которой "откушенная" часть отпадает.
+	for (int i = 1; i < num; i++)							//cutting snake if accidant
+		if (s[0].x == s[i].x && s[0].y == s[i].y) {			// check
+			num = i;										// cutting tail snake
+			counter = i;									// counter = size snake
+		}
 }
 
-void Snake() // выводим змейку на экран
+void Snake() 
 {
-	
-	for (int i = 0; i < num; i++) // цикл отрисовки.
+	for (int i = 0; i < num; i++)
 	{
-		glRectf(s[i].x * scale, s[i].y * scale, (s[i].x + 1) * scale, (s[i].y +1) * scale); //Рисуем квадраты, те самые "блоки" змеи
+		glRectf(s[i].x * scale, s[i].y * scale, (s[i].x + 1) * scale, (s[i].y +1) * scale); 
 	}
 }
 
-void Key(int key, int a, int b) // функция нажатия клавиш
+void Key(int key, int a, int b)								// read keybord
 {
-	switch (key) // используем оператор switch
+	switch (key)											// switch key
 	{
-	case 101: dir = 0; break; // при нажатии клавиш, задаем направление змеи(вверх, вниз, влево, вправо)
+	case 101: dir = 0; break; 
 	case 102: dir = 2; break;
 	case 100: dir = 1; break;
 	case 103: dir = 3; break;
@@ -121,88 +145,91 @@ void Key(int key, int a, int b) // функция нажатия клавиш
 	}
 }
 
-void Read_kb(unsigned char key, int, int)				// zoom and control
+void Textout( const char* str, int x, int y, GLfloat red, GLfloat green, GLfloat blue)
 {
-	if (key == 's')
-		vx -= 2.0;
-	if (key == 'w')
-		vx += 2.0;
-	if (key == 'a')
-		vy -= 2.0;
-	if (key == 'd')
-		vy += 2.0;
-	if (key == '1')
-		vz -= 2.0;
-	if (key == '3')
-		vz += 2.0;
-	if (key == '+')
-		Zoom -= 2.0;
-	if (key == '-')
-		Zoom += 2.0;
-	if (key == 27)
-		exit(0);
-	glutPostRedisplay();
+	glColor3f(red, green, blue);
+	glRasterPos2f(x, y);
+	int i = 0;
+	while (str[i] != '\0')
+	{
+		glutBitmapCharacter(GLUT_BITMAP_9_BY_15, str[i]);
+		i++;
+		glRasterPos2f(x + i * 0.2, y);
+
+	}
 }
 
-void Barier() {
-
-
-	glBegin(GL_LINE_LOOP);
-
-	glColor3f(1, 0, 0);
-	glVertex3f(0 + scale, 0 + scale,0);
-	glVertex3f(N * scale, 0 + scale,0);
-	glVertex3f(N * scale, M * scale - 20,0);
-	glVertex3f(0 + scale, M * scale - 20,0);
-	glEnd();
-}
-
-void Display() //функция общий отрисовки
+void Display()												//general rendering function
 {
-	glClear(GL_COLOR_BUFFER_BIT); // очищаем окно перед началом отрисовки
+	glClear(GL_COLOR_BUFFER_BIT);							// clear window
 
-	//Draw(); // вызов функции Draw, отвечающей за отрисовку сетки
-	Snake(); // вызов функции Snake, отвечающей за отрисовку змейки
+	//character-by-character output of points				(посимвольный вывод счета)
 
-	for (int i = 0; i < 3; i++) // заполнение карты фруктами
-		m.DrawFruct();
-	Barier();
+	Textout("S",  barier.left_hight_position_x + 10, barier.left_hight_position_y + 10,  0.8, 0.4, 0);
+	Textout("C",  barier.left_hight_position_x + 20, barier.left_hight_position_y + 10,  0.8, 0.4, 0);
+	Textout("O",  barier.left_hight_position_x + 30, barier.left_hight_position_y + 10,  0.8, 0.4, 0);
+	Textout("R",  barier.left_hight_position_x + 40, barier.left_hight_position_y + 10,  0.8, 0.4, 0);
+	Textout("E",  barier.left_hight_position_x + 50, barier.left_hight_position_y + 10,  0.8, 0.4, 0);
+	Textout(":",  barier.left_hight_position_x + 60, barier.left_hight_position_y + 10,  0.8, 0.4, 0);
+
+
+	int fs=counter / 10;
+	int ls=counter % 10;
+	char str[100];
+	char strl[100];
+	sprintf_s(str, "%d", fs);
+	sprintf_s(strl, "%d", ls);
 	
+	if(counter<10){
+		Textout(strl, barier.left_hight_position_x + 90, barier.left_hight_position_y + 10, 0.8, 0.4, 0);
+	}
+	else {
 
-	glFlush(); // выводим на экран все вышеописанное
-	glutSwapBuffers();
+		Textout(str, barier.left_hight_position_x + 90, barier.left_hight_position_y + 10, 0.8, 0.4, 0);
+		Textout(strl, barier.left_hight_position_x + 110, barier.left_hight_position_y + 10, 0.8, 0.4, 0);
+	}
+
+
+	//Draw();												// Debug function			(uncomment for debugging)
+	Snake();												// rendering snake
+												
+		m.DrawTarget();										// spawn target
+	barier.DrawBarier();									// rendering barier
+	
+	glFlush();												// rendering
+	glutSwapBuffers();										// redraw
 }
 
-void timer(int = 0) // Таймер игры(промежуток времени, в котором будет производится все процессы)
+void timer(int = 0)											// Timer
 {
-	Display(); // Вызов функций  
-	tick();
-	glutTimerFunc(100, timer, 0); // новый вызов таймера( 100 - промежуток времени(в милисекундах), через который он будет вызыватся, timer - вызываемый паблик)
+	Display();  
+	Movement();
+	glutTimerFunc(100, timer, 0); 
 }
 
-int main(int argc, char** argv) // Главная функция
+int main(int argc, char** argv) 
 {
-	std::cout << "Snake by Alexey Ovchinnikov :P\n Loading..."; // крутой текст в консоле при загрузке
+	std::cout << "Game 'SNAKE' by Artemka =)))0)"; 
 	srand(time(0));
-	for (int i = 0; i < 10; i++) // начальная, самая первая отрисовка фруктов
+	for (int i = 0; i < 10; i++)							// first draw target
 		m.New();
 
-	s[0].x = 10; // начальное положение змейки по X
-	s[0].y = 10; // и Y координате
+	s[0].x = 10;											// X start position snake
+	s[0].y = 10;											// Y start position snake
 	s[0].z = 0;
-	// следующие функции абсолютно идиентичных почти во всех программах на OpenGL, так то запоминать их не обязательно, кроме ...
-	
+
+
+	//OpenGL (glut) standart function
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
-	glutInitWindowSize(w, h); // ... этой, она создаем окно (w - ширина, h - высота)
-	glutCreateWindow("Game"); // ... этой, она задает название окна
+	glutInitWindowSize(w, h);								//widht and hight window
+	glutCreateWindow("Snake");								// name window
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	gluOrtho2D(0, 520, 0, 520);
-	glutDisplayFunc(Display); // ... и этой, она вызывает начальную функцию, в нашем случае это главная функция отрисовки - Display
+	glutDisplayFunc(Display);								//  "Renderscene"
 	glutSpecialFunc(Key);
-	glutKeyboardFunc(Read_kb);
-	glutTimerFunc(50, timer, 0); // ... Ну и в начале программы задаем рекурсивный таймер.
+	glutTimerFunc(50, timer, 0); 
 	glutMainLoop();
 
 	return 0;
